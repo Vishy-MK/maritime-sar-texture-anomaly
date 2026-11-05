@@ -157,6 +157,12 @@ def cmd_gui(args) -> int:
     return 0
 
 
+def cmd_web(args) -> int:
+    from .web.server import main as web_main
+    web_main(args.input, port=args.port, open_browser=not args.no_browser)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="sarvision", description="Texture-anomaly survivor localisation for maritime SAR")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -169,7 +175,13 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("input", nargs="?", help="optional video, image folder or image to open")
     g.set_defaults(func=cmd_gui)
 
-    r = sub.add_parser("run", help="process a video / folder / image and write the annotated result")
+    w = sub.add_parser("web", help="open the browser-based operator console")
+    w.add_argument("input", nargs="?", help="optional video, image folder or image to open")
+    w.add_argument("--port", type=int, default=8765)
+    w.add_argument("--no-browser", action="store_true", help="do not open a browser tab")
+    w.set_defaults(func=cmd_web)
+
+    r = sub.add_parser("run",help="process a video / folder / image and write the annotated result")
     r.add_argument("--input", required=True)
     r.add_argument("--output", help="output .mp4/.avi, or a folder for annotated images")
     r.add_argument("--csv", help="write the per-frame shortlist to this CSV")

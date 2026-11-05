@@ -66,7 +66,7 @@ Samyak Jain & 240962638 \\
 \end{tabular}
 \vspace{1cm}
 
-{\large Section AIML-A\par}
+{\large Branch: AIML \quad Section: A\par}
 \vfill
 {\large November 2026\par}
 \end{titlepage}
@@ -77,7 +77,7 @@ Samyak Jain & 240962638 \\
 
 This project finds people in the water from aerial RGB imagery and reached 92.4\% recall@5 on a synthetic benchmark, using only classical computer vision and no training data. People in the water often cover fewer than 16 pixels, too few for appearance-based recognition. The system therefore models the water rather than the person.
 
-Each frame passes through six stages: illumination normalisation, Gabor and uniform LBP texture description, chi-square anomaly scoring, glint suppression, morphological shape filtering and temporal tracking. The output is a ranked shortlist of at most $k$ regions per frame, drawn as an overlay in a Tkinter operator GUI.
+Each frame passes through six stages: illumination normalisation, Gabor and uniform LBP texture description, chi-square anomaly scoring, glint suppression, morphological shape filtering and temporal tracking. The output is a ranked shortlist of at most $k$ regions per frame, drawn as an overlay in two operator front ends: a Tkinter desktop GUI and a browser-based console.
 
 On 6 synthetic sequences (60 frames each, 739 annotated people), the full system scored 51.7\% precision and 1.77 false alarms per frame at $k = 5$. Recall rose to 99.3\% once the tracker had warmed up. Throughput was about 2.7 frames/s at $1280 \times 720$ on a laptop CPU. These numbers validate the pipeline end to end; they do not measure real-world performance, which still has to be tested on public datasets.
 
@@ -119,6 +119,7 @@ Type & Requirement & How the project meets it \\
 Functional & Accept video, an image folder or a single image & \texttt{run} command and GUI file loaders \\
 Functional & Output a ranked top-$k$ shortlist as an overlay and a CSV & \texttt{run -{}-output -{}-csv}; GUI shortlist table \\
 Functional & Let the operator inspect stages and tune parameters & GUI stage selector, 16 sliders, config save and load \\
+Functional & Provide a GUI front end & Tkinter desktop GUI (\texttt{gui}) and browser console (\texttt{web}) \\
 Functional & Evaluate against annotated data & \texttt{evaluate} command; COCO JSON and YOLO txt loaders \\
 Non-functional & Run on a CPU with no GPU & About 2.7 frames/s at $1280 \times 720$ on a laptop CPU \\
 Non-functional & Be repeatable and tested & 40 passing unit and integration tests \\
@@ -349,7 +350,11 @@ We inspected all 11 false alarms at frame 31 across the six sequences by eye: 3 
 % ------------------------------------------------------------ UI
 \section{UI Design}
 
-The operator GUI, built with Tkinter, puts the frame in the centre, the controls on the left and the ranked answer on the right. An operator reads the shortlist first, and a developer can open any stage to see why a box did or did not appear.
+The project has two front ends that run the same pipeline and share one configuration. The Tkinter desktop GUI is for inspecting and tuning one frame at a time. The browser console analyses a whole sequence and plays the result back, so it suits the live demo.
+
+\subsection{Desktop GUI (Tkinter)}
+
+The desktop GUI puts the frame in the centre, the controls on the left and the ranked answer on the right. An operator reads the shortlist first, and a developer can open any stage to see why a box did or did not appear.
 
 \begin{figure}[H]
 \centering
@@ -387,6 +392,40 @@ Frame diagnostics (right) & Read-only text & Show wave estimates, tile counts, t
 \end{table}
 
 The frame in Figures~\ref{fig:gui} and~\ref{fig:guianomaly} shows the diagnostics at work. 321 of 6,254 tiles were anomalous. Of 26 blobs, 17 were rejected as too small and 9 kept, and 3 tracks reached the shortlist.
+
+\subsection{Web Operator Console}
+
+The console is started with \texttt{python -m sarvision web} and opens at \texttt{http://localhost:8765}. A small standard-library HTTP server (\texttt{web/server.py}) analyses the whole sequence in a background thread: stages 1--5 run in parallel on a thread pool and stage 6 runs in order. The browser plays the result at the source frame rate while the timeline fills in, and renders any intermediate stage on demand for the frame being viewed. Changing a parameter restarts the analysis.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{web_console.jpg}
+\caption{Web console on sequence 5, frame 31. Two people are ranked \#1 and \#2 (77.8\% and 73.4\%); \#3 is a short-lived false alarm at 25.5\%. The stage strip at the bottom opens each intermediate result.}
+\label{fig:web}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Web console panels.}
+\label{tab:web}
+\begin{tabularx}{\textwidth}{@{}lYY@{}}
+\toprule
+Panel & Controls & Purpose \\
+\midrule
+Header & Sequence tabs, analysis progress, recall@5, precision, false alarms and throughput tiles & Pick a source and see sequence-level scores \\
+Frame view (centre) & Ground truth, track trails, raw detections and split-compare toggles & Show the overlay with ranks, confidences and track ids \\
+Playback & Play, step, speed, loop; keyboard shortcuts & Move through the sequence \\
+Timeline & Top-confidence bars and per-frame recall strip & Spot the warm-up and frames where a person was missed \\
+Stage strip & Thumbnails of stages 0 to 6 & Open any intermediate result for the current frame \\
+Shortlist (right) & Ranked cards with crop, confidence, hits, coherence; CSV export & Tell the operator where to look first \\
+Frame telemetry (right) & Wave spectrum dial, per-stage timings, tile and blob counts & Explain why a box did or did not appear \\
+Tuning (right) & Ablation presets and parameter sliders & Change the pipeline and re-analyse \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+In Figure~\ref{fig:web} the telemetry shows wavelengths of 9.2, 11.5 and 14.7 px for the far, middle and near bands, which confirms that waves appear smaller with distance. The anomaly stage takes the largest share of the 790 ms per frame.
 
 % ------------------------------------------------------------ enhancement
 \section{Image Enhancement and Filtering Techniques}
@@ -463,7 +502,7 @@ Technique & Implemented in \\
 Intensity transform: piecewise-linear contrast stretch & \texttt{normalise.piecewise\_linear} \\
 Histogram processing: CLAHE & \texttt{normalise.normalise} \\
 Spatial filtering: Gaussian, median, Gabor convolution & \texttt{normalise.flat\_field}, \texttt{anomaly.colour\_deviation}, \texttt{texture.gabor\_energy} \\
-Frequency domain: 2-D DFT power spectrum & \texttt{texture.estimate\_wave} \\
+Frequency domain: 2-D DFT power spectrum, phase correlation & \texttt{texture.estimate\_wave}, \texttt{pipeline.estimate\_shift} \\
 Texture: uniform LBP, chi-square histogram distance & \texttt{texture.uniform\_lbp}, \texttt{anomaly.chi\_square} \\
 Colour spaces: Lab, normalised rgb chromaticity & \texttt{anomaly.colour\_deviation}, \texttt{glint.chromaticity} \\
 Thresholding: robust median + $k \cdot$MAD & \texttt{anomaly.score\_anomalies} \\
@@ -498,6 +537,8 @@ File & Responsibility \\
 \texttt{tracking.py} & Stage 6: association, persistence, drift test, ranking \\
 \texttt{pipeline.py} & Runs the stages in order; optional camera-motion compensation \\
 \texttt{gui.py}, \texttt{viz.py} & Tkinter operator GUI; stage rendering and overlay \\
+\texttt{web/server.py}, \texttt{web/static/} & Browser operator console: HTTP server, background analysis, single-page front end \\
+\texttt{cli.py} & Command-line entry point for every command \\
 \texttt{datasets.py}, \texttt{metrics.py}, \texttt{evaluate.py} & Dataset loaders, metrics, ablations, plots \\
 \texttt{synthetic.py} & Synthetic sea sequences with ground truth \\
 \texttt{tests/} & Unit tests for each stage and end-to-end tests \\
@@ -511,6 +552,7 @@ File & Responsibility \\
 pip install -r requirements.txt
 python -m sarvision synth --out data/synthetic
 python -m sarvision gui data/synthetic/seq02.mp4
+python -m sarvision web data/synthetic/seq05.mp4
 python -m sarvision run --input data/synthetic/seq02.mp4 --output results/demo/seq02_annotated.mp4 --csv results/demo/seq02_shortlist.csv
 python -m sarvision evaluate --coco data/synthetic/annotations.json --ablations full,no_temporal,no_glint,no_morphology --out results/synthetic
 python -m pytest -q

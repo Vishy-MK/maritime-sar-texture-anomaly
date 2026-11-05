@@ -19,7 +19,8 @@ frame ─► 1 normalise ─► 2 Gabor + LBP per tile ─► 3 chi-square anoma
 ```bash
 pip install -r requirements.txt
 python -m sarvision synth --out data/synthetic          # render the synthetic benchmark (6 sequences x 60 frames)
-python -m sarvision gui data/synthetic/seq02.mp4        # operator / tuning GUI
+python -m sarvision web                                 # browser operator console (http://127.0.0.1:8765)
+python -m sarvision gui data/synthetic/seq02.mp4        # Tkinter operator / tuning GUI
 python -m sarvision run --input data/synthetic/seq02.mp4 --output results/demo/seq02_annotated.mp4 --csv results/demo/seq02_shortlist.csv
 python -m sarvision evaluate --coco data/synthetic/annotations.json --ablations full,no_temporal,no_glint,no_morphology --out results/synthetic
 python -m pytest -q                                     # 40 unit / integration tests
@@ -41,6 +42,7 @@ python -m pytest -q                                     # 40 unit / integration 
 | `sarvision/tracking.py` | **Stage 6**: nearest-neighbour association, persistence, coherent-drift test, ranking |
 | `sarvision/pipeline.py` | ties the stages together; optional camera-motion compensation (phase correlation) |
 | `sarvision/viz.py` | renders every intermediate stage and the operator overlay |
+| `sarvision/web/` | browser console: analyses the whole sequence in the background (stages 1-5 in parallel), then plays it back with ranked targets, track trails, ground-truth hits, live recall / precision / false alarms, split-screen stage compare, wave-spectrum telemetry and live re-tuning |
 | `sarvision/gui.py` | Tkinter GUI: load a sequence, inspect each stage, tune parameters, view the overlay, export |
 | `sarvision/datasets.py` | loaders: COCO JSON (SeaDronesSee, MOBDrone) and YOLO txt (AFO) |
 | `sarvision/metrics.py`, `evaluate.py` | recall@k, false alarms / frame, precision, size and altitude stratification, ablations, plots |
